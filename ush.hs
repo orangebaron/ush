@@ -4,7 +4,9 @@ import System.Process
 import System.IO
 import Data.List.Split
 import Control.Exception
+import Control.Concurrent
 import Data.Either
+import Data.Maybe
 
 {- TODO if it's a directory ignore the result -}
 findInPath :: String -> IO (Maybe String)
@@ -27,8 +29,29 @@ splitConcat on s = concat $ map (splitOn on) s
 removeEmpty :: [String] -> [String]
 removeEmpty = filter (/= "")
 
+pipe :: Handle -> Handle -> IO ()
+pipe h1 h2 = do
+  h1Open <- hIsOpen h1
+  h2Open <- hIsOpen h2
+  if (h1Open && h2Open) then do
+    contents <- hGetContents h1
+    hPutStr h2 contents
+    hFlush h2
+    pipe h1 h2
+  else return ()
+
 execProgram :: String -> [String] -> IO ()
-execProgram prog args = readProcess prog args "" >>= putStrLn
+execProgram prog args = do
+  (Just hIn, Just hOut, Just hErr, hProc) <- createProcess (proc prog args){ std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+  forkIO $ pipe stdin hIn
+  forkIO $ pipe hOut stdout
+  forkIO $ pipe hErr stderr
+  return ()
+  -- output <- hGetContents hOut
+  -- putStrLn output
+  -- hDuplicateTo stdout (fromJust hOut)
+
+-- readProcess prog args "" >>= putStrLn
 
 execCmd :: [String] -> IO ()
 execCmd [] = return ()
