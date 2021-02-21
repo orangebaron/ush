@@ -1,2 +1,0 @@
-#!/bin/sh
-echo -e "echo \$$1" | sh
